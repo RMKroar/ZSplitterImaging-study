@@ -1,4 +1,5 @@
 import numpy as np
+import warnings
 
 """
 [Parameters]
@@ -99,6 +100,9 @@ def ComputeGaussianPSF(NA, wavelength, dx, dz, shape, n):
     J2 : numpy.ndarray
 """
 def RL_TV(I, otf, maxIter = 20, reg = 0.01):
+    # code-level check for possible RuntimeWarning (overflow, NaN etc)
+    warnings.filterwarnings('error', category=RuntimeWarning)
+
     sizeI = I.shape
     J1 = np.array(I)
     J2 = J1.copy()
@@ -122,12 +126,19 @@ def RL_TV(I, otf, maxIter = 20, reg = 0.01):
         ImRatio = wI / Reblurred + eps
 
         Ratio = (np.fft.ifftn(np.conj(otf)) * np.fft.fftn(ImRatio)).real
+
         if not reg == 0:
             TV_term = ComputeTV(J2, reg, eps)
             Ratio = Ratio / TV_term
         
         J3 = J2.copy()
-        J2 = np.maximum(Y * Ratio, 0)
+
+        try:
+            J2 = np.maximum(Y * Ratio, 0)
+        except RuntimeWarning:
+            print(Y)
+            print(Ratio)
+            return
         J4 = np.column_stack((J2.ravel() - Y.ravel(), J4[:, 0]))
 
     return J2
