@@ -88,3 +88,76 @@ def ComputeGaussianPSF(NA, wavelength, dx, dz, shape, n):
 
     psf = psf / np.sum(psf)
     return psf
+
+"""
+[Parameters]
+    I : numpy.ndarray
+    otf : numpy.ndarray
+    maxIter : int
+    reg : number
+[Returns]
+    J2 : numpy.ndarray
+"""
+def RL_TV(I, otf, maxIter = 20, reg = 0.01):
+    sizeI = I.shape
+    J1 = np.array(I)
+    J2 = J1.copy()
+    J3 = 0
+    J4 = np.zeros((np.prod(sizeI), 2))
+    wI = np.maximum(J1, 0)
+    eps = np.finfo(float).eps
+
+    lda = 0
+    for k in range(0, maxIter):
+        print("[Inner Iteration] #", str(k+1), sep='')
+        if k > 1:
+            lda = np.dot(J4[:, 0], J4[:, 1]) / np.dot(J4[:, 1], J4[:, 1]) + eps
+            # stability enforcement
+            lda = np.maximum(np.minimum(lda, 1), 0)     
+        Y = np.maximum(J2 + lda * (J2 - J3), 0)
+        
+        # (3-b) make core for the LR estimation
+        Reblurred = np.fft.ifftn(otf * np.fft.fftn(Y)).real
+        Reblurred = np.maximum(Reblurred, eps)
+        ImRatio = wI / Reblurred + eps
+
+        Ratio = (np.fft.ifftn(np.conj(otf)) * np.fft.fftn(ImRatio)).real
+        if not reg == 0:
+            TV_term = ComputeTV(J2, reg, eps)
+            Ratio = Ratio / TV_term
+        
+        J3 = J2.copy()
+        J2 = np.maximum(Y * Ratio, 0)
+        J4 = np.column_stack((J2.ravel() - Y.ravel(), J4[:, 0]))
+
+    return J2
+
+"""
+[Parameters]
+    I : numpy.ndarray
+    reg : number
+    eps : number
+[Returns]
+    TVterm : numpy.ndarray
+"""
+def ComputeTV(I, reg, eps):
+    gx = np.diff(I, axis=0)
+    Oxp = np.pad(gx, ((0, 1), (0, 0), (0, 0)), mode='constant', constant_values=0)
+    Oxn = np.pad(gx, ((1, 0), (0, 0), (0, 0)), mode='constant', constant_values=0)
+    mx = (np.sign(Oxp) + np.sign(Oxn)) / 2 * np.minimum(Oxp, Oxn)
+    mx = np.maximum(mx, eps)
+    Dx = Oxp / np.sqrt(Oxp ** 2 + mx ** 2)
+    DDx = np.diff(Dx, axis=0)
+    DDx = np.pad(DDx, ((1, 0), (0, 0), (0, 0)), mode='constant', constant_values=0)
+
+    gy = np.diff(I, axis=1)
+    Oyp = np.pad(gy, ((0, 0), (0, 1), (0, 0)), mode='constant', constant_values=0)
+    Oyn = np.pad(gy, ((0, 0), (1, 0), (0, 0)), mode='constant', constant_values=0)
+    my = (np.sign(Oyp) + np.sign(Oyn)) / 2 * np.minimum(Oyp, Oyn)
+    my = np.maximum(my, eps)
+    Dy = Oyp / np.sqrt(Oyp ** 2 + mx ** 2)
+    DDy = np.diff(Dy, axis=1)
+    DDy = np.pad(DDy, ((0, 0), (1, 0), (0, 0)), mode='constant', constant_values=0)
+
+    TVterm = 1 - (DDx + DDy) * reg
+    return np.maximum(TVterm, eps)
