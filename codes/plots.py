@@ -12,7 +12,7 @@ def plotResults(raw, EV, depthCode):
     plt.title('Raw EDOF Stack')
     plt.show()
 
-    edof = np.squeeze(np.sum(EV[..., np.newaxis] * np.pad(depthCode, ((0, 0), (0, 0), (4, 4), (0, 0)), mode='edge'), axis=2))
+    edof = np.squeeze(np.sum(EV[..., np.newaxis] * depthCode, axis=2))
     edof = edof - np.min(edof)
     edof = edof / np.max(edof)
 

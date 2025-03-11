@@ -117,7 +117,7 @@ def RL_TV(I, otf, maxIter = 20, reg = 0.01):
         if k > 1:
             lda = np.dot(J4[:, 0], J4[:, 1]) / np.dot(J4[:, 1], J4[:, 1]) + eps
             # stability enforcement
-            lda = np.maximum(np.minimum(lda, 1), 0)     
+            lda = np.maximum(np.minimum(lda, 1), 0)  
         Y = np.maximum(J2 + lda * (J2 - J3), 0)
         
         # (3-b) make core for the LR estimation
@@ -125,9 +125,9 @@ def RL_TV(I, otf, maxIter = 20, reg = 0.01):
         Reblurred = np.maximum(Reblurred, eps)
         ImRatio = wI / Reblurred + eps
 
-        Ratio = (np.fft.ifftn(np.conj(otf)) * np.fft.fftn(ImRatio)).real
+        Ratio = np.fft.ifftn(np.conj(otf) * np.fft.fftn(ImRatio)).real
 
-        if not reg == 0:
+        if reg != 0:
             TV_term = ComputeTV(J2, reg, eps)
             Ratio = Ratio / TV_term
         
@@ -139,7 +139,8 @@ def RL_TV(I, otf, maxIter = 20, reg = 0.01):
             print(Y)
             print(Ratio)
             return
-        J4 = np.column_stack((J2.ravel() - Y.ravel(), J4[:, 0]))
+        
+        J4 = np.column_stack((J2.flatten() - Y.flatten(), J4[:, 0]))
 
     return J2
 
