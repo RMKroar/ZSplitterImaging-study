@@ -1,7 +1,12 @@
+import cupy as cp
 import numpy as np
 import matplotlib.pyplot as plt
 
 def plotResults(raw, EV, depthCode):
+    depthCode = cp.asnumpy(depthCode)
+    raw = cp.asnumpy(raw)   
+    EV = cp.asnumpy(EV)
+
     edof = np.squeeze(np.sum(raw[..., np.newaxis] * depthCode, axis=2))
     edof = edof - np.min(edof)
     edof = edof / np.max(edof)
