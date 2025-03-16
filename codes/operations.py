@@ -20,7 +20,8 @@ def GenerateOTF(psf, shape):
         psf = cp.roll(psf, -int(axis_size / 2), axis=axis)
 
     # Compute OTF
-    otf = cp.fft.fft2(psf)
+    # NOTE: original code writes cp.fft.fft2(psf), but it has resulted in wrong OTF.
+    otf = cp.fft.fftn(psf)
 
     # Estimate the rough number of operations involved in the FFT
     # and discard the PSF imaginary part if within roundoff error
@@ -73,16 +74,15 @@ def ComputeGaussianPSF(NA, wavelength, dx, dz, shape, n):
     z = cp.arange(-Nz, Nz + 1) * dz
     k = n / wavelength
     dk = cp.sqrt(2) * NA * k
-
     xi = cp.pi * dk ** 2 * z / 2 / k
 
     L = dx * Nx
     x = cp.arange(-L/2 + dx/2, L/2 + dx/2, dx)
+
     [xx, yy] = cp.meshgrid(x, x)
     rho = cp.sqrt(xx ** 2 + yy ** 2)
-
     psf = cp.zeros((Nx, Ny, z.shape[0]))
-    
+
     for i in range(0, z.shape[0]):
         psf[:, :, i] = cp.pi * dk ** 2 / (1 + xi[i] ** 2) * cp.exp(-cp.pi ** 2 * dk ** 2 * rho ** 2 / (1 + xi[i] ** 2))
         psf[:, :, i] = psf[:, :, i] / cp.sum(psf[:, :, i])
@@ -104,7 +104,7 @@ def RL_TV(I, otf, maxIter = 20, reg = 0.01):
     warnings.filterwarnings('error', category=RuntimeWarning)
 
     sizeI = cp.array(I.shape)
-    J1 = cp.array(I)
+    J1 = cp.array(I, dtype=cp.float32)
     J2 = J1.copy()
     J3 = 0
     J4 = cp.zeros((cp.prod(sizeI).item(), 2))
